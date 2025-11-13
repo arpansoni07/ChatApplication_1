@@ -3,7 +3,7 @@ import user from "../middleWare/models/User.js";
 import cloudinary, { isCloudinaryConfigured } from "../lib/cloudinary.js";
 import { userSocketMap } from "../lib/socket.js";
 
-const ONLINE_THRESHOLD_MS = 60 * 1000; // 1 minute
+const ONLINE_THRESHOLD_MS = 15 * 1000; // 15 seconds
 const TYPING_TIMEOUT_MS = 5000; // 5 seconds
 // Get all user except the logged in user
 

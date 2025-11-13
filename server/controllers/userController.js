@@ -106,3 +106,18 @@ export const updateProfile = async (req, res) => {
     res.json({ success: false, message: error.message });
   }
 };
+
+// ----- Logout -----
+export const logoutUser = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, {
+      lastSeen: null,
+      typingTo: null,
+      typingUpdatedAt: null,
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.log(error.message);
+    res.json({ success: false, message: error.message });
+  }
+};

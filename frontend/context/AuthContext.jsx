@@ -164,13 +164,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ------------------- Logout -------------------
-  const logout = () => {
-    localStorage.removeItem("token");
-    setToken(null);
-    setAuthUser(null);
-    setOnlineUsers([]);
-    delete axios.defaults.headers.common["token"];
-    toast.success("Logged out successfully");
+  const logout = async () => {
+    try {
+      await axios.post("/api/auth/logout");
+    } catch (err) {
+      console.error("Failed to notify logout:", err.message);
+    } finally {
+      localStorage.removeItem("token");
+      setToken(null);
+      setAuthUser(null);
+      setOnlineUsers([]);
+      delete axios.defaults.headers.common["token"];
+      toast.success("Logged out successfully");
+    }
   };
 
   // ------------------- Update Profile -------------------
