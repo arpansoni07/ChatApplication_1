@@ -150,7 +150,9 @@ export const sendMessage = async (req, res) => {
     if (receiverSocketId) {
       // Get io instance from global
       const { io } = await import("../server.js");
-      io.to(receiverSocketId).emit("newMessage", newMessage);
+      if (io?.to) {
+        io.to(receiverSocketId).emit("newMessage", newMessage);
+      }
     }
     res.json({ success: true, newMessage });
   } catch (error) {
