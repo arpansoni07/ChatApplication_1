@@ -122,8 +122,6 @@
 import axios from "axios";
 import { useEffect, useState, createContext } from "react";
 import toast from "react-hot-toast";
-import { io } from "socket.io-client";
-// import { AuthContext } from "./AuthContext.jsx";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 axios.defaults.baseURL = backendUrl;
@@ -134,7 +132,6 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem("token"));
   const [authUser, setAuthUser] = useState(null);
   const [onlineUsers, setOnlineUsers] = useState([]);
-  const [socket, setSocket] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // ------------------- Check Auth -------------------
@@ -173,8 +170,6 @@ export const AuthProvider = ({ children }) => {
     setAuthUser(null);
     setOnlineUsers([]);
     delete axios.defaults.headers.common["token"];
-    socket?.disconnect();
-    setSocket(null);
     toast.success("Logged out successfully");
   };
 
@@ -192,26 +187,6 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ------------------- Socket -------------------
-  useEffect(() => {
-    if (!authUser) return;
-    if (socket?.connected) return;
-
-    const newSocket = io(backendUrl, {
-      query: { userId: authUser._id },
-      autoConnect: false,
-    });
-
-    newSocket.on("getOnlineUsers", (userIds) => setOnlineUsers(userIds));
-    newSocket.connect();
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.disconnect();
-      setSocket(null);
-      setOnlineUsers([]);
-    };
-  }, [authUser?._id]);
-
   // ------------------- On Mount -------------------
   useEffect(() => {
     if (token) axios.defaults.headers.common["token"] = token;
@@ -222,7 +197,7 @@ export const AuthProvider = ({ children }) => {
     axios,
     authUser,
     onlineUsers,
-    socket,
+    setOnlineUsers,
     login,
     logout,
     updateProfile,

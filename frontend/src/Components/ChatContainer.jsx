@@ -7,20 +7,79 @@ import Avatar from "./Avatar";
 import toast from "react-hot-toast";
 
 const ChatContainer = () => {
-  const { messages, selectedUser, setSelectedUser, sendMessage, getMessages } =
-    useContext(ChatContext);
+  const {
+    messages,
+    selectedUser,
+    setSelectedUser,
+    sendMessage,
+    typingStatus,
+    notifyTyping,
+  } = useContext(ChatContext);
   const { authUser, onlineUsers } = useContext(AuthContext);
 
   const scrollEnd = useRef();
+  const typingTimeoutRef = useRef(null);
+  const typingActiveRef = useRef(false);
 
   const [input, setInput] = useState("");
+  const isPeerTyping = selectedUser?._id
+    ? Boolean(typingStatus[selectedUser._id])
+    : false;
+  const selectedUserIdStr = selectedUser?._id?.toString
+    ? selectedUser._id.toString()
+    : selectedUser?._id;
+  const isSelectedUserOnline = selectedUserIdStr
+    ? onlineUsers.some(
+        (onlineId) =>
+          (onlineId?.toString ? onlineId.toString() : onlineId) ===
+          selectedUserIdStr
+      )
+    : false;
 
-  // Handle sending message
+  const stopTyping = () => {
+    if (!selectedUser?._id) return;
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    if (typingActiveRef.current) {
+      typingActiveRef.current = false;
+      notifyTyping(selectedUser._id, false);
+    }
+  };
+
+  const scheduleTypingStop = () => {
+    if (!selectedUser?._id) return;
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      typingTimeoutRef.current = null;
+      stopTyping();
+    }, 1500);
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setInput(value);
+
+    if (!selectedUser?._id) return;
+    if (value.trim() === "") {
+      stopTyping();
+      return;
+    }
+
+    if (!typingActiveRef.current) {
+      typingActiveRef.current = true;
+      notifyTyping(selectedUser._id, true);
+    }
+    scheduleTypingStop();
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (input.trim() === "") return null;
     await sendMessage({ text: input.trim() });
     setInput("");
+    stopTyping();
   };
   // Compress image function - More aggressive compression
   const compressImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.65) => {
@@ -109,17 +168,8 @@ const ChatContainer = () => {
       console.error("Image compression error:", error);
       e.target.value = "";
     }
+    stopTyping();
   };
-
-  useEffect(() => {
-    if (selectedUser) {
-      getMessages(selectedUser._id);
-    }
-  }, [selectedUser]);
-
-  // const [messageText, setMessageText] = useState("");
-  // const { messages, sendMessage } = useContext(ChatContext);
-  // const { authUser, onlineUsers } = useContext(AuthContext);
 
   useEffect(() => {
     if (scrollEnd.current && messages) {
@@ -127,20 +177,12 @@ const ChatContainer = () => {
     }
   }, [messages]);
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const isOnline = onlineUsers.some(
-    (onlineId) =>
-      (onlineId?.toString ? onlineId.toString() : onlineId) ===
-      (selectedUser?._id?.toString
-        ? selectedUser._id.toString()
-        : selectedUser?._id)
-  );
+  useEffect(() => {
+    return () => {
+      stopTyping();
+      typingActiveRef.current = false;
+    };
+  }, [selectedUser?._id]);
 
   return selectedUser ? (
     <div className="h-full overflow-scroll relative backdrop-blur-lg">
@@ -154,7 +196,7 @@ const ChatContainer = () => {
         />
         <p className="flex-1 text-lg text-white flex items-center gap-2">
           {selectedUser.fullName}
-          {onlineUsers.includes(selectedUser._id) && (
+          {isSelectedUserOnline && (
             <span className="w-2 h-2 rounded-full bg-green-500"></span>
           )}
         </p>
@@ -226,6 +268,12 @@ const ChatContainer = () => {
             <p>No messages yet. Start a conversation!</p>
           </div>
         )}
+        {isPeerTyping && (
+          <div className="flex items-center gap-2 text-gray-300 text-xs italic mb-4">
+            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+            {(selectedUser?.fullName?.split(" ")[0] || "User") + " is typing..."}
+          </div>
+        )}
         <div ref={scrollEnd}></div>
       </div>
       {/* bottom area */}
@@ -236,7 +284,7 @@ const ChatContainer = () => {
       >
         <div className="flex flex-1 items-center bg-gray-800/90 border border-gray-700/50 px-4 py-2 rounded-full hover:border-gray-600/70 transition-colors">
           <input
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             value={input}
             onKeyDown={(e) => (e.key === "Enter" ? handleSendMessage(e) : null)}
             type="text"

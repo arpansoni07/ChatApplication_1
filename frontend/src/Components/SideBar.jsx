@@ -15,7 +15,7 @@ const SideBar = () => {
     setUnseenMessages,
   } = useContext(ChatContext);
 
-  const { logout, onlineUsers } = useContext(AuthContext);
+  const { logout } = useContext(AuthContext);
 
   const [input, setInput] = useState();
 
@@ -30,12 +30,6 @@ const SideBar = () => {
   useEffect(() => {
     getUsers();
   }, []);
-
-  useEffect(() => {
-    if (onlineUsers.length > 0) {
-      getUsers();
-    }
-  }, [onlineUsers]);
 
   return (
     <div className="backdrop-blur-xl border-2 border-gray-600 rounded-2xl overflow-hidden h-[100%] flex flex-col relative">
@@ -109,11 +103,7 @@ const SideBar = () => {
                     {user.fullName}
                   </p>
 
-                  {onlineUsers.some(
-                    (onlineId) =>
-                      (onlineId?.toString ? onlineId.toString() : onlineId) ===
-                      (user._id?.toString ? user._id.toString() : user._id)
-                  ) ? (
+                  {user?.isOnline ? (
                     <span className="text-green-400 text-xs">Online</span>
                   ) : (
                     <span className="text-neutral-400 text-xs">Offline</span>

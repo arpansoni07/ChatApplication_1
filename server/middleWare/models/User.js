@@ -7,6 +7,9 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true, minlength: 6 },
     profilePic: { type: String, default: "" },
     bio: { type: String },
+    lastSeen: { type: Date, default: Date.now },
+    typingTo: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    typingUpdatedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

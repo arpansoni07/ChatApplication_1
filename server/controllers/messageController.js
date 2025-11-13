@@ -2,6 +2,9 @@ import Message from "../middleWare/models/Message.js";
 import user from "../middleWare/models/User.js";
 import cloudinary, { isCloudinaryConfigured } from "../lib/cloudinary.js";
 import { userSocketMap } from "../lib/socket.js";
+
+const ONLINE_THRESHOLD_MS = 60 * 1000; // 1 minute
+const TYPING_TIMEOUT_MS = 5000; // 5 seconds
 // Get all user except the logged in user
 
 // export const getUsersForSidebar = async () => {
@@ -41,6 +44,19 @@ export const getUsersForSidebar = async (req, res) => {
       .find({ _id: { $ne: userId } })
       .select("-password");
 
+    const now = Date.now();
+    const usersWithPresence = filteredUsers.map((u) => {
+      const plain = u.toObject();
+      const lastSeenTime = plain.lastSeen ? new Date(plain.lastSeen).getTime() : 0;
+      const isOnline =
+        lastSeenTime && now - lastSeenTime <= ONLINE_THRESHOLD_MS ? true : false;
+      return { ...plain, isOnline };
+    });
+
+    const onlineUserIds = usersWithPresence
+      .filter((u) => u.isOnline)
+      .map((u) => u._id);
+
     const unseenMessages = {};
     const promises = filteredUsers.map(async (u) => {
       const messages = await Message.find({
@@ -55,7 +71,12 @@ export const getUsersForSidebar = async (req, res) => {
     });
 
     await Promise.all(promises);
-    res.json({ success: true, users: filteredUsers, unseenMessages });
+    res.json({
+      success: true,
+      users: usersWithPresence,
+      unseenMessages,
+      onlineUserIds,
+    });
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });
@@ -79,7 +100,21 @@ export const getMessages = async (req, res) => {
       { seen: true }
     );
 
-    res.json({ success: true, messages });
+    const typingUser = await user
+      .findById(selectedUserId)
+      .select("typingTo typingUpdatedAt lastSeen");
+
+    let typing = { isTyping: false };
+    if (
+      typingUser?.typingTo?.toString() === myId.toString() &&
+      typingUser?.typingUpdatedAt &&
+      Date.now() - new Date(typingUser.typingUpdatedAt).getTime() <=
+        TYPING_TIMEOUT_MS
+    ) {
+      typing = { isTyping: true, lastUpdated: typingUser.typingUpdatedAt };
+    }
+
+    res.json({ success: true, messages, typing });
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });
@@ -154,7 +189,31 @@ export const sendMessage = async (req, res) => {
         io.to(receiverSocketId).emit("newMessage", newMessage);
       }
     }
+    await user.findByIdAndUpdate(senderId, {
+      typingTo: null,
+      typingUpdatedAt: null,
+      lastSeen: new Date(),
+    });
+
     res.json({ success: true, newMessage });
+  } catch (error) {
+    console.log(error.message);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+export const updateTypingStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isTyping } = req.body;
+
+    const update = isTyping
+      ? { typingTo: id, typingUpdatedAt: new Date(), lastSeen: new Date() }
+      : { typingTo: null, typingUpdatedAt: null, lastSeen: new Date() };
+
+    await user.findByIdAndUpdate(req.user._id, update);
+
+    res.json({ success: true });
   } catch (error) {
     console.log(error.message);
     res.json({ success: false, message: error.message });

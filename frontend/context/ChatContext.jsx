@@ -1,45 +1,72 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { AuthContext } from "./AuthContext.jsx";
 import toast from "react-hot-toast";
 
 export const ChatContext = createContext();
+
+const USERS_POLL_INTERVAL = 10000;
+const MESSAGES_POLL_INTERVAL = 2500;
 
 export const ChatProvider = ({ children }) => {
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [unseenMessages, setUnseenMessages] = useState({});
+  const [typingStatus, setTypingStatus] = useState({});
 
-  const { socket, axios } = useContext(AuthContext);
+  const { axios, setOnlineUsers } = useContext(AuthContext);
 
-  // function to get all users for sidebar
-  const getUsers = async () => {
+  const usersPollRef = useRef(null);
+  const messagesPollRef = useRef(null);
+
+  const getUsers = async (options = { silent: false }) => {
     try {
       const { data } = await axios.get("/api/messages/users");
-      console.log(data, ">>>>>>");
-
       if (data.success) {
-        setUsers(data.users);
-        setUnseenMessages(data.unseenMessages);
+        setUsers(data.users || []);
+        setUnseenMessages(data.unseenMessages || {});
+        setOnlineUsers(data.onlineUserIds || []);
+        if (selectedUser?._id) {
+          const latestSelected = (data.users || []).find(
+            (u) =>
+              (u._id?.toString ? u._id.toString() : u._id) ===
+              (selectedUser._id?.toString
+                ? selectedUser._id.toString()
+                : selectedUser._id)
+          );
+          if (latestSelected) {
+            setSelectedUser((prev) =>
+              prev && (prev._id?.toString ? prev._id.toString() : prev._id) ===
+                (latestSelected._id?.toString
+                  ? latestSelected._id.toString()
+                  : latestSelected._id)
+                ? { ...prev, ...latestSelected }
+                : prev
+            );
+          }
+        }
       }
     } catch (error) {
-      toast.error(error.message);
+      if (!options.silent) toast.error(error.message);
     }
   };
 
-  // function to get messages for selected user
-  const getMessages = async (userId) => {
+  const getMessages = async (userId, options = { silent: false }) => {
     try {
       const { data } = await axios.get(`/api/messages/${userId}`);
       if (data.success) {
-        setMessages(data.messages);
+        setMessages(data.messages || []);
+        if (data.typing) {
+          setTypingStatus((prev) => ({
+            ...prev,
+            [userId]: Boolean(data.typing.isTyping),
+          }));
+        }
       }
     } catch (error) {
-      toast.error(error.message);
+      if (!options.silent) toast.error(error.message);
     }
   };
-
-  // function to send message to selected user
 
   const sendMessage = async (messageData) => {
     try {
@@ -49,6 +76,10 @@ export const ChatProvider = ({ children }) => {
       );
       if (data.success) {
         setMessages((prevMessages) => [...prevMessages, data.newMessage]);
+        setTypingStatus((prev) => ({
+          ...prev,
+          [selectedUser._id]: false,
+        }));
       } else {
         toast.error(data.message || "Failed to send message");
       }
@@ -56,47 +87,43 @@ export const ChatProvider = ({ children }) => {
       toast.error(error.message);
     }
   };
-  // function to subscribe to message for selected user
-  const subscribeToMessages = async () => {
-    if (!socket) return;
 
-    socket.on("newMessage", (newMessage) => {
-      const senderIdStr = newMessage.senderId?.toString ? newMessage.senderId.toString() : newMessage.senderId;
-      const selectedUserIdStr = selectedUser?._id?.toString ? selectedUser._id.toString() : selectedUser?._id;
-      
-      if (selectedUser && senderIdStr === selectedUserIdStr) {
-        newMessage.seen = true;
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
-        axios.put(`/api/messages/mark/${newMessage._id}`);
-      } else {
-        setUnseenMessages((prevUnseenMessages) => ({
-          ...prevUnseenMessages,
-          [senderIdStr]: prevUnseenMessages[senderIdStr]
-            ? prevUnseenMessages[senderIdStr] + 1
-            : 1,
-        }));
-      }
-    });
-  };
-
-  // function to unsubscribe  from messages
-
-  const unsubscribeFromMessage = () => {
-    if (socket) socket.off("newMessage");
-  };
-  useEffect(() => {
-    subscribeToMessages();
-    return () => unsubscribeFromMessage();
-  }, [socket, selectedUser]);
-
-  // Load messages when selectedUser changes
-  useEffect(() => {
-    if (selectedUser?._id) {
-      getMessages(selectedUser._id);
-      setMessages([]); // Clear previous messages
-    } else {
-      setMessages([]);
+  const notifyTyping = async (userId, isTyping) => {
+    try {
+      await axios.post(`/api/messages/typing/${userId}`, { isTyping });
+    } catch (error) {
+      // avoid toast spam; log silently
+      console.error("Typing status update failed:", error.message);
     }
+  };
+
+  useEffect(() => {
+    getUsers();
+    if (usersPollRef.current) clearInterval(usersPollRef.current);
+    usersPollRef.current = setInterval(() => getUsers({ silent: true }), USERS_POLL_INTERVAL);
+
+    return () => {
+      if (usersPollRef.current) clearInterval(usersPollRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedUser?._id) {
+      if (messagesPollRef.current) clearInterval(messagesPollRef.current);
+      setMessages([]);
+      return;
+    }
+
+    getMessages(selectedUser._id);
+    if (messagesPollRef.current) clearInterval(messagesPollRef.current);
+    messagesPollRef.current = setInterval(
+      () => getMessages(selectedUser._id, { silent: true }),
+      MESSAGES_POLL_INTERVAL
+    );
+
+    return () => {
+      if (messagesPollRef.current) clearInterval(messagesPollRef.current);
+    };
   }, [selectedUser?._id]);
 
   const value = {
@@ -109,6 +136,8 @@ export const ChatProvider = ({ children }) => {
     setSelectedUser,
     unseenMessages,
     setUnseenMessages,
+    typingStatus,
+    notifyTyping,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
