@@ -179,7 +179,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-cover bg-center flex items-center justify-center gap-8 sm:justify-evenly max-sm:flex-col backdrop-blur-2xl">
+    <div className="min-h-screen bg-cover bg-center bg-[url('/bgImage.svg')] flex items-center justify-center gap-8 sm:justify-evenly max-sm:flex-col backdrop-blur-2xl px-4 py-10">
       {/* ------- Left ------- */}
       <img src={assets.logo_big} alt="" className="w-[min(30vw,250px)]" />
 
