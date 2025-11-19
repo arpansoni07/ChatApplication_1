@@ -50,9 +50,9 @@ const SideBar = () => {
   }, []);
 
   return (
-    <div className="backdrop-blur-xl border-2 border-gray-600 rounded-2xl overflow-hidden h-[100%] flex flex-col relative">
+    <div className="backdrop-blur-xl border-2 border-gray-600 rounded-2xl overflow-visible h-full flex flex-col relative">
       <div
-        className={`bg-[#8185B2/10] flex flex-col h-full rounded-r-xl overflow-hidden text-white ${
+        className={`bg-[#8185B2/10] flex flex-col h-full rounded-r-xl overflow-visible text-white ${
           selectedUser ? "max-md:hidden" : ""
         }`}
       >
@@ -64,11 +64,11 @@ const SideBar = () => {
               <img
                 src={assets.menu_icon}
                 alt="menu"
-                className="max-h-5 cursor-pointer"
+                className="max-h-6 w-6 cursor-pointer p-1 rounded-full hover:bg-white/10 transition-colors"
                 onClick={() => setMenuOpen((prev) => !prev)}
               ></img>
               <div
-                className={`absolute top-full right-0 z-20 w-32 p-5 rounded-md bg-[#282142] border border-gray-600 text-gray-100 ${
+                className={`absolute top-full right-0 z-20 w-40 p-4 rounded-md bg-[#282142] border border-gray-600 text-gray-100 shadow-2xl ${
                   menuOpen ? "block" : "hidden group-hover:block"
                 }`}
               >
