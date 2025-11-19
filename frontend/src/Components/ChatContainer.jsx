@@ -17,7 +17,9 @@ const ChatContainer = () => {
   } = useContext(ChatContext);
   const { authUser, onlineUsers } = useContext(AuthContext);
 
-  const scrollEnd = useRef();
+  const scrollEnd = useRef(null);
+  const prevMessageCountRef = useRef(messages.length);
+  const prevSelectedUserRef = useRef(selectedUser?._id);
   const typingTimeoutRef = useRef(null);
   const typingActiveRef = useRef(false);
 
@@ -172,10 +174,18 @@ const ChatContainer = () => {
   };
 
   useEffect(() => {
-    if (scrollEnd.current && messages) {
+    if (!scrollEnd.current || !messages) return;
+
+    const messageCountChanged = messages.length !== prevMessageCountRef.current;
+    const conversationChanged = selectedUser?._id !== prevSelectedUserRef.current;
+
+    if (messageCountChanged || conversationChanged) {
       scrollEnd.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+
+    prevMessageCountRef.current = messages.length;
+    prevSelectedUserRef.current = selectedUser?._id;
+  }, [messages, selectedUser?._id]);
 
   useEffect(() => {
     return () => {
@@ -185,9 +195,9 @@ const ChatContainer = () => {
   }, [selectedUser?._id]);
 
   return selectedUser ? (
-    <div className="h-full overflow-scroll relative backdrop-blur-lg">
+    <div className="flex h-full flex-col relative backdrop-blur-lg">
       {/* header */}
-      <div className="flex items-center gap-3 py-3 mx-4 border-b border-stone-500">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-stone-500">
         <Avatar
           src={selectedUser?.profilePic}
           name={selectedUser?.fullName}
@@ -209,7 +219,7 @@ const ChatContainer = () => {
         <img src={assets.help_icon} alt="" className="max-md:hidden max-w-5" />
       </div>
       {/* chat area */}
-      <div className="flex flex-col h-[calc(100%-120px)] overflow-y-scroll p-3 pb-20">
+      <div className="flex flex-col flex-1 overflow-y-auto px-4 py-3 gap-2 pb-6">
         {messages.length > 0 ? (
           messages.map((msg, index) => {
             const msgSenderIdStr = msg.senderId?.toString
@@ -274,13 +284,12 @@ const ChatContainer = () => {
             {(selectedUser?.fullName?.split(" ")[0] || "User") + " is typing..."}
           </div>
         )}
-        <div ref={scrollEnd}></div>
+        <div ref={scrollEnd} />
       </div>
       {/* bottom area */}
-
       <form
         onSubmit={handleSendMessage}
-        className="absolute bottom-0 left-0 right-0 flex items-center gap-2 p-3 bg-gray-900/95 border-t border-gray-700/50"
+        className="flex items-center gap-2 px-4 py-3 bg-gray-900/95 border-t border-gray-700/50"
       >
         <div className="flex flex-1 items-center bg-gray-800/90 border border-gray-700/50 px-4 py-2 rounded-full hover:border-gray-600/70 transition-colors">
           <input
