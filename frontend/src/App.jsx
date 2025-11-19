@@ -20,7 +20,7 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-[100dvh] bg-slate-950">
       <Toaster />
       <Routes>
         <Route

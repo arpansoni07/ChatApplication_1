@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import assets from "../assets/assets";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext.jsx";
@@ -18,6 +18,8 @@ const SideBar = () => {
   const { logout } = useContext(AuthContext);
 
   const [input, setInput] = useState();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   const navigate = useNavigate(false);
 
@@ -29,6 +31,22 @@ const SideBar = () => {
 
   useEffect(() => {
     getUsers();
+  }, [getUsers]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, []);
 
   return (
@@ -42,21 +60,35 @@ const SideBar = () => {
         <div className="flex-shrink-0 p-5 pb-3">
           <div className="flex justify-between items-center">
             <img src={assets.logo} alt="logo" className="max-w-40"></img>
-            <div className="relative py-2 group ">
+            <div className="relative py-2 group" ref={menuRef}>
               <img
                 src={assets.menu_icon}
                 alt="menu"
                 className="max-h-5 cursor-pointer"
+                onClick={() => setMenuOpen((prev) => !prev)}
               ></img>
-              <div className="absolute top-full right-0 z-20 w-32 p-5 rounded-md bg-[#282142] border border-gray-600 text-gray-100 hidden group-hover:block">
+              <div
+                className={`absolute top-full right-0 z-20 w-32 p-5 rounded-md bg-[#282142] border border-gray-600 text-gray-100 ${
+                  menuOpen ? "block" : "hidden group-hover:block"
+                }`}
+              >
                 <p
-                  onClick={() => navigate("/profile")}
+                  onClick={() => {
+                    navigate("/profile");
+                    setMenuOpen(false);
+                  }}
                   className="cursor-pointer text-sm"
                 >
                   Edit profile
                 </p>
                 <hr className="my-2 border-t border-gray-500" />
-                <p onClick={() => logout()} className="cursor-pointer text-sm">
+                <p
+                  onClick={() => {
+                    logout();
+                    setMenuOpen(false);
+                  }}
+                  className="cursor-pointer text-sm"
+                >
                   Logout
                 </p>
               </div>
